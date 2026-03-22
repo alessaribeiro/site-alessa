@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Calculadora</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #000;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .calc-wrapper {
+      width: 100%;
+      max-width: 380px;
+      background: #0d0d0d;
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.8);
+    }
+
+    .display {
+      padding: 8px 8px 24px;
+      min-height: 130px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: flex-end;
+    }
+
+    .expression {
+      color: #666;
+      font-size: 20px;
+      font-weight: 300;
+      letter-spacing: 0.02em;
+      min-height: 32px;
+      word-break: break-all;
+      text-align: right;
+      width: 100%;
+    }
+
+    .result {
+      font-weight: 300;
+      color: #fff;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      margin-top: 12px;
+      text-align: right;
+      width: 100%;
+      transition: font-size 0.1s;
+    }
+
+    .result.size-lg { font-size: 48px; }
+    .result.size-md { font-size: 38px; }
+    .result.size-sm { font-size: 30px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    button {
+      height: 64px;
+      border: none;
+      border-radius: 16px;
+      font-size: 24px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.1s;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    button:active {
+      transform: scale(0.93);
+      opacity: 0.85;
+    }
+
+    .btn-number {
+      background: #333;
+      color: #fff;
+    }
+    .btn-number:hover { background: #444; }
+
+    .btn-function {
+      background: #666;
+      color: #000;
+    }
+    .btn-function:hover { background: #777; }
+
+    .btn-operator {
+      background: #ff9500;
+      color: #fff;
+    }
+    .btn-operator:hover { background: #ffad33; }
+
+    .btn-equals {
+      background: #424242;
+      color: #fff;
+    }
+    .btn-equals:hover { background: #555; }
+
+    .col-span-2 {
+      grid-column: span 2;
+      border-radius: 999px;
+      justify-content: flex-start;
+      padding-left: 28px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="calc-wrapper">
+  <div class="display">
+    <div class="expression" id="expression">0</div>
+    <div class="result size-lg" id="result">0</div>
+  </div>
+
+  <div class="grid">
+    <button class="btn-function" onclick="handleClear()">AC</button>
+    <button class="btn-function" onclick="handleBackspace()">&#9003;</button>
+    <button class="btn-function" onclick="handlePercent()">%</button>
+    <button class="btn-operator" onclick="append('÷')">÷</button>
+
+    <button class="btn-number" onclick="append('7')">7</button>
+    <button class="btn-number" onclick="append('8')">8</button>
+    <button class="btn-number" onclick="append('9')">9</button>
+    <button class="btn-operator" onclick="append('×')">×</button>
+
+    <button class="btn-number" onclick="append('4')">4</button>
+    <button class="btn-number" onclick="append('5')">5</button>
+    <button class="btn-number" onclick="append('6')">6</button>
+    <button class="btn-operator" onclick="append('-')">−</button>
+
+    <button class="btn-number" onclick="append('1')">1</button>
+    <button class="btn-number" onclick="append('2')">2</button>
+    <button class="btn-number" onclick="append('3')">3</button>
+    <button class="btn-operator" onclick="append('+')">+</button>
+
+    <button class="btn-number col-span-2" onclick="append('0')">0</button>
+    <button class="btn-number" onclick="append('.')">.</button>
+    <button class="btn-equals" onclick="handleEquals()">=</button>
+  </div>
+</div>
+
+<script>
+  let expression = '';
+
+  function updateDisplay() {
+    const exprEl = document.getElementById('expression');
+    const resultEl = document.getElementById('result');
+
+    exprEl.textContent = expression || '0';
+
+    const res = safeEval(expression);
+    resultEl.textContent = res;
+
+    const len = res.length;
+    resultEl.className = 'result ' + (len <= 7 ? 'size-lg' : len <= 10 ? 'size-md' : 'size-sm');
+  }
+
+  function safeEval(expr) {
+    try {
+      if (!expr.trim()) return '0';
+      const js = expr.replace(/×/g, '*').replace(/÷/g, '/');
+      if (!/^[\d+\-*/.\s()]+$/.test(js)) return '0';
+      const trimmed = js.replace(/[+\-*/\s]+$/, '');
+      if (!trimmed) return '0';
+      const val = Function('"use strict"; return (' + trimmed + ')')();
+      if (typeof val !== 'number' || !isFinite(val)) return 'Erro';
+      return formatResult(val);
+    } catch { return '0'; }
+  }
+
+  function formatResult(num) {
+    if (isNaN(num) || !isFinite(num)) return 'Erro';
+    const rounded = parseFloat(num.toPrecision(12));
+    const str = rounded.toString();
+    if (str.length > 14) return num.toExponential(6);
+    return str;
+  }
+
+  function append(value) {
+    if (!expression && ['+', '×', '÷'].includes(value)) return;
+
+    if (/[+\-×÷]\s*$/.test(expression) && ['+', '-', '×', '÷'].includes(value)) {
+      expression = expression.replace(/[+\-×÷]\s*$/, '') + ' ' + value + ' ';
+    } else if (value === '.') {
+      const parts = expression.split(/[+\-×÷]/);
+      const last = parts[parts.length - 1];
+      if (last.includes('.')) return;
+      if (!last.trim()) expression += '0';
+      expression += '.';
+    } else if (['+', '-', '×', '÷'].includes(value)) {
+      expression += ' ' + value + ' ';
+    } else {
+      expression += value;
+    }
+    updateDisplay();
+  }
+
+  function handleClear() {
+    expression = '';
+    updateDisplay();
+  }
+
+  function handleBackspace() {
+    if (/\s[+\-×÷]\s$/.test(expression)) {
+      expression = expression.slice(0, -3);
+    } else {
+      expression = expression.slice(0, -1);
+    }
+    updateDisplay();
+  }
+
+  function handleEquals() {
+    const res = safeEval(expression);
+    if (res !== 'Erro') {
+      expression = res;
+      updateDisplay();
+    }
+  }
+
+  function handlePercent() {
+    try {
+      const js = expression.replace(/×/g, '*').replace(/÷/g, '/');
+      const val = Function('"use strict"; return (' + js + ')')();
+      if (typeof val === 'number' && isFinite(val)) {
+        expression = formatResult(val / 100);
+        updateDisplay();
+      }
+    } catch {}
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key >= '0' && e.key <= '9') { e.preventDefault(); append(e.key); }
+    else if (e.key === '.') { e.preventDefault(); append('.'); }
+    else if (e.key === '+') { e.preventDefault(); append('+'); }
+    else if (e.key === '-') { e.preventDefault(); append('-'); }
+    else if (e.key === '*') { e.preventDefault(); append('×'); }
+    else if (e.key === '/') { e.preventDefault(); append('÷'); }
+    else if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); handleEquals(); }
+    else if (e.key === 'Escape') { e.preventDefault(); handleClear(); }
+    else if (e.key === 'Backspace') { e.preventDefault(); handleBackspace(); }
+    else if (e.key === '%') { e.preventDefault(); handlePercent(); }
+  });
+
+  updateDisplay();
+</script>
+</body>
+</html>
